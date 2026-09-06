@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XPトラッカー</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="XP">
+<meta name="theme-color" content="#16193A">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #16193A;
+    --panel: #22264F;
+    --panel2: #2C3163;
+    --line: #3D437F;
+    --text: #EEF0FF;
+    --muted: #9AA0D0;
+    --gold: #F2C14E;
+    --gold-dark: #B8892A;
+    --green: #6FD39A;
+    --red: #F07C7C;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: "Noto Sans JP", sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 16px 14px 48px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .dot { font-family: "DotGothic16", "Noto Sans JP", sans-serif; }
+
+  /* ---- ステータス画面（ヒーロー） ---- */
+  .status {
+    border: 2px solid var(--gold);
+    background: var(--panel);
+    padding: 14px 16px 16px;
+    position: relative;
+  }
+  .status::before, .status::after {
+    content: ""; position: absolute; width: 8px; height: 8px; background: var(--gold);
+  }
+  .status::before { top: -2px; left: -2px; }
+  .status::after { bottom: -2px; right: -2px; }
+  .lvrow { display: flex; align-items: baseline; gap: 12px; }
+  .lv-label { font-size: 22px; color: var(--gold); }
+  .lv-num { font-size: 64px; line-height: 1; color: var(--gold); }
+  .gauge-wrap { margin-top: 10px; }
+  .gauge-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .gauge { height: 14px; background: #0F1129; border: 1px solid var(--line); margin-top: 4px; }
+  .gauge > div { height: 100%; background: var(--gold); transition: width .4s; }
+  @media (prefers-reduced-motion: reduce) { .gauge > div { transition: none; } }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .stat { background: var(--panel2); padding: 8px 10px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 22px; line-height: 1.2; }
+  .stat .v small { font-size: 12px; color: var(--muted); margin-left: 2px; }
+  .flame { color: var(--gold); }
+
+  /* ---- セクション ---- */
+  h2 {
+    font-size: 16px; margin: 28px 0 10px; font-weight: 700;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  h2 button { font-size: 12px; }
+  .season-line { font-size: 13px; color: var(--muted); margin: -4px 0 8px; }
+
+  /* ---- 軸リスト ---- */
+  .axis {
+    display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; margin-bottom: 8px;
+  }
+  .axis .name { font-weight: 700; }
+  .axis .sub { font-size: 12px; color: var(--muted); }
+  .axis .sub b { color: var(--text); font-weight: 400; }
+  .axis .month { text-align: right; font-size: 13px; color: var(--muted); min-width: 64px; }
+  .axis .month span { color: var(--text); }
+
+  button {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel2); color: var(--text); padding: 6px 12px; font-size: 14px;
+  }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  button.gain { background: var(--gold); color: #1A1500; border-color: var(--gold-dark); font-weight: 700; min-width: 64px; }
+  button.gain:active { transform: translateY(1px); }
+  button.ghost { background: transparent; color: var(--muted); }
+  button.danger { color: var(--red); }
+
+  /* ---- 履歴 ---- */
+  .log { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .log .t { color: var(--muted); font-size: 12px; margin-right: 8px; }
+  .log .x { color: var(--gold); margin-left: 8px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+  /* ---- シーズン一覧 ---- */
+  .seasons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .season { background: var(--panel); border: 1px solid var(--line); padding: 8px 12px; }
+  .season .m { font-size: 12px; color: var(--muted); }
+  .season .x { font-size: 20px; }
+  .season.best { border-color: var(--gold); }
+  .season.best .m::after { content: " 自己ベスト"; color: var(--gold); }
+
+  /* ---- モーダル ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+  .overlay.open { display: flex; }
+  .sheet { background: var(--panel); border-top: 2px solid var(--gold); width: 100%; max-width: 560px; padding: 16px 16px 28px; }
+  .sheet h3 { margin: 0 0 12px; font-size: 16px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .field input { width: 100%; font-family: inherit; font-size: 16px; padding: 8px 10px; background: #0F1129; color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); }
+  .field input:focus-visible { outline: 2px solid var(--gold); }
+  .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .row .left { margin-right: auto; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--gold); color: #1A1500; padding: 8px 16px; border-radius: var(--radius); font-weight: 700; display: none; z-index: 20; }
+  .toast.show { display: block; }
+  .levelup { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(22,25,58,.85); z-index: 30; text-align: center; }
+  .levelup.show { display: flex; }
+  .levelup .big { font-size: 40px; color: var(--gold); }
+  .levelup .n { font-size: 96px; line-height: 1; color: var(--gold); }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="app"><div class="loading">読み込み中…</div></div>
+
+<div class="overlay" id="axisModal">
+  <div class="sheet">
+    <h3 id="axisModalTitle">軸を編集</h3>
+    <div class="field"><label for="axisName">名前</label><input id="axisName" maxlength="20"></div>
+    <div class="field"><label for="axisXp">1回あたりのXP</label><input id="axisXp" type="number" inputmode="numeric" min="1" max="999"></div>
+    <div class="row">
+      <button class="ghost danger left" id="axisDelete">削除</button>
+      <button class="ghost" id="axisCancel">やめる</button>
+      <button class="gain" id="axisSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="customModal">
+  <div class="sheet">
+    <h3 id="customTitle">XPを記録</h3>
+    <div class="field"><label for="customXp">獲得XP</label><input id="customXp" type="number" inputmode="numeric" min="1" max="9999"></div>
+    <div class="row">
+      <button class="ghost" id="customCancel">やめる</button>
+      <button class="gain" id="customSave">記録する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="levelup" id="levelup"><div><div class="dot big">LEVEL UP!</div><div class="dot n" id="levelupNum"></div><div style="color:var(--muted)">タップで閉じる</div></div></div>
+
+<script>
+const KEY = 'xp-tracker-v1';
+const DEFAULT_AXES = [
+  ['アウトプット', 30], ['運動', 20], ['インプット', 15], ['息抜き', 5]
+];
+// 保存先：Claude内では window.storage、Safari等ではブラウザ内保存（localStorage）を使う
+const store = window.storage ? {
+  get: () => window.storage.get(KEY, false).then(r => r && r.value),
+  set: v => window.storage.set(KEY, v, false)
+} : {
+  get: async () => localStorage.getItem(KEY),
+  set: async v => { localStorage.setItem(KEY, v); return true; }
+};
+let state = null;
+let editingAxisId = null;
+let customAxisId = null;
+
+// ---------- 日付ユーティリティ ----------
+const pad = n => String(n).padStart(2, '0');
+function dayKey(d = new Date()) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function monthKey(d = new Date()) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+function shiftDay(key, n) { const [y,m,d] = key.split('-').map(Number); const dt = new Date(y, m-1, d + n); return dayKey(dt); }
+
+// ---------- 保存・読み込み ----------
+async function load() {
+  try {
+    const v = await store.get();
+    if (v) { state = JSON.parse(v); }
+  } catch (e) { /* 未作成 */ }
+  if (!state) {
+    state = { axes: DEFAULT_AXES.map(([name, xp], i) => ({ id: 'a' + (i+1), name, xp })), logs: [], nextId: 9, seenLevel: 1 };
+    await save();
+  }
+  render();
+}
+async function save() {
+  try {
+    const r = await store.set(JSON.stringify(state));
+    if (!r) showToast('保存に失敗しました');
+  } catch (e) { showToast('保存に失敗しました'); }
+}
+
+// ---------- 計算 ----------
+function totalXp() { return state.logs.reduce((s, l) => s + l.xp, 0); }
+function levelInfo(total) {
+  let level = 1, need = 100, rest = total;
+  while (rest >= need) { rest -= need; level++; need = 100 + (level - 1) * 50; }
+  return { level, cur: rest, need };
+}
+function streak() {
+  const days = new Set(state.logs.map(l => l.day));
+  let k = dayKey();
+  if (!days.has(k)) k = shiftDay(k, -1);
+  let n = 0;
+  while (days.has(k)) { n++; k = shiftDay(k, -1); }
+  return n;
+}
+function monthTotals() {
+  const m = {};
+  for (const l of state.logs) m[l.month] = (m[l.month] || 0) + l.xp;
+  return m;
+}
+function xpOf(axisId, filter) { return state.logs.filter(l => l.axis === axisId && filter(l)).reduce((s, l) => s + l.xp, 0); }
+
+// ---------- 描画 ----------
+function render() {
+  const total = totalXp();
+  const lv = levelInfo(total);
+  const st = streak();
+  const today = dayKey(), month = monthKey();
+  const months = monthTotals();
+  const thisMonth = months[month] || 0;
+  const bestKey = Object.keys(months).sort((a,b) => months[b]-months[a])[0];
+  const todayXp = state.logs.filter(l => l.day === today).reduce((s,l)=>s+l.xp, 0);
+  const pct = Math.round(lv.cur / lv.need * 100);
+
+  const axesHtml = state.axes.map(a => `
+    <div class="axis">
+      <div>
+        <div class="name">${esc(a.name)}</div>
+        <div class="sub">1回 <b>${a.xp}</b>XP　今日 <b>${xpOf(a.id, l => l.day === today)}</b>XP</div>
+      </div>
+      <div class="month"><span>${xpOf(a.id, l => l.month === month)}</span><br>今月</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="gain" data-gain="${a.id}">+${a.xp}</button>
+        <button class="ghost" data-custom="${a.id}" style="font-size:12px;padding:3px 8px">別の量</button>
+      </div>
+    </div>`).join('');
+
+  const recent = state.logs.slice(-15).reverse();
+  const logsHtml = recent.length ? recent.map(l => {
+    const a = state.axes.find(x => x.id === l.axis);
+    return `<div class="log"><div><span class="t">${l.day.slice(5).replace('-','/')} ${l.time}</span>${esc(a ? a.name : '（削除済み）')}<span class="x">+${l.xp}</span></div><button class="ghost" data-del="${l.id}" style="font-size:12px;padding:2px 8px">取り消す</button></div>`;
+  }).join('') : '<div class="empty">まだ記録がありません。上の「+」でXPを稼ぎましょう。</div>';
+
+  const seasonKeys = Object.keys(months).sort().reverse().slice(0, 6);
+  const seasonsHtml = seasonKeys.length ? seasonKeys.map(k => `
+    <div class="season ${k === bestKey && seasonKeys.length > 1 ? 'best' : ''}">
+      <div class="m">${k.replace('-','年')}月</div>
+      <div class="dot x">${months[k]} XP</div>
+    </div>`).join('') : '<div class="empty">今月から始まります。</div>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="status">
+      <div class="lvrow"><div class="dot lv-label">Lv.</div><div class="dot lv-num">${lv.level}</div></div>
+      <div class="gauge-wrap">
+        <div class="gauge-text"><span>次のレベルまで</span><span>${lv.cur} / ${lv.need} XP</span></div>
+        <div class="gauge"><div style="width:${pct}%"></div></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">連続日数</div><div class="dot v"><span class="flame">${st > 0 ? '🔥' : ''}</span>${st}<small>日</small></div></div>
+        <div class="stat"><div class="k">今日</div><div class="dot v">${todayXp}<small>XP</small></div></div>
+        <div class="stat"><div class="k">通算</div><div class="dot v">${total}<small>XP</small></div></div>
+      </div>
+    </div>
+
+    <h2>今月のシーズン <span style="font-weight:400;color:var(--gold)" class="dot">${thisMonth} XP</span></h2>
+    <div class="season-line">${bestKey && bestKey !== month ? `自己ベスト ${months[bestKey]} XP（${bestKey.replace('-','/')}）まであと ${Math.max(0, months[bestKey] - thisMonth)} XP` : '今月が自己ベストです。記録を伸ばしましょう。'}</div>
+
+    <h2>軸 <button class="ghost" id="addAxis">＋ 軸を追加</button></h2>
+    ${axesHtml}
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">軸の名前を長押し（PCは右クリック）で編集できます。</div>
+
+    <h2>最近の記録</h2>
+    ${logsHtml}
+
+    <h2>シーズン履歴</h2>
+    <div class="seasons">${seasonsHtml}</div>
+  `;
+
+  document.querySelectorAll('[data-gain]').forEach(b => b.onclick = () => gain(b.dataset.gain));
+  document.querySelectorAll('[data-custom]').forEach(b => b.onclick = () => openCustom(b.dataset.custom));
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removeLog(b.dataset.del));
+  document.getElementById('addAxis').onclick = () => openAxis(null);
+  document.querySelectorAll('.axis .name').forEach((el, i) => {
+    const id = state.axes[i].id;
+    let timer;
+    el.addEventListener('touchstart', () => { timer = setTimeout(() => openAxis(id), 500); }, { passive: true });
+    el.addEventListener('touchend', () => clearTimeout(timer));
+    el.addEventListener('touchmove', () => clearTimeout(timer));
+    el.addEventListener('contextmenu', e => { e.preventDefault(); openAxis(id); });
+  });
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------- 操作 ----------
+async function gain(axisId, amount) {
+  const a = state.axes.find(x => x.id === axisId);
+  if (!a) return;
+  const xp = amount || a.xp;
+  const before = levelInfo(totalXp()).level;
+  const now = new Date();
+  state.logs.push({ id: 'l' + (state.nextId++), axis: axisId, xp, day: dayKey(now), month: monthKey(now), time: `${pad(now.getHours())}:${pad(now.getMinutes())}` });
+  await save();
+  render();
+  const after = levelInfo(totalXp()).level;
+  if (after > before) { document.getElementById('levelupNum').textContent = after; document.getElementById('levelup').classList.add('show'); }
+  else showToast(`+${xp} XP`);
+}
+async function removeLog(id) {
+  state.logs = state.logs.filter(l => l.id !== id);
+  await save(); render(); showToast('取り消しました');
+}
+
+function openAxis(id) {
+  editingAxisId = id;
+  const a = id ? state.axes.find(x => x.id === id) : { name: '', xp: 10 };
+  document.getElementById('axisModalTitle').textContent = id ? '軸を編集' : '軸を追加';
+  document.getElementById('axisName').value = a.name;
+  document.getElementById('axisXp').value = a.xp;
+  document.getElementById('axisDelete').style.display = id ? '' : 'none';
+  document.getElementById('axisModal').classList.add('open');
+}
+document.getElementById('axisCancel').onclick = () => document.getElementById('axisModal').classList.remove('open');
+document.getElementById('axisSave').onclick = async () => {
+  const name = document.getElementById('axisName').value.trim();
+  const xp = parseInt(document.getElementById('axisXp').value, 10);
+  if (!name) { showToast('名前を入力してください'); return; }
+  if (!(xp > 0)) { showToast('XPは1以上の数字にしてください'); return; }
+  if (editingAxisId) { const a = state.axes.find(x => x.id === editingAxisId); a.name = name; a.xp = xp; }
+  else state.axes.push({ id: 'a' + (state.nextId++), name, xp });
+  document.getElementById('axisModal').classList.remove('open');
+  await save(); render();
+};
+document.getElementById('axisDelete').onclick = async () => {
+  if (!confirm('この軸を削除しますか？（過去の記録のXPは残ります）')) return;
+  state.axes = state.axes.filter(x => x.id !== editingAxisId);
+  document.getElementById('axisModal').classList.remove('open');
+  await save(); render();
+};
+
+function openCustom(id) {
+  customAxisId = id;
+  const a = state.axes.find(x => x.id === id);
+  document.getElementById('customTitle').textContent = `${a.name} に記録`;
+  document.getElementById('customXp').value = a.xp;
+  document.getElementById('customModal').classList.add('open');
+}
+document.getElementById('customCancel').onclick = () => document.getElementById('customModal').classList.remove('open');
+document.getElementById('customSave').onclick = async () => {
+  const xp = parseInt(document.getElementById('customXp').value, 10);
+  if (!(xp > 0)) { showToast('XPは1以上の数字にしてください'); return; }
+  document.getElementById('customModal').classList.remove('open');
+  await gain(customAxisId, xp);
+};
+document.getElementById('levelup').onclick = () => document.getElementById('levelup').classList.remove('show');
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+load();
+</script>
+</body>
+</html>
